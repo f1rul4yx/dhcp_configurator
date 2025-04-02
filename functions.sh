@@ -1,7 +1,7 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
-#Author: Diego Vargas
-#Fecha de creacion: abr 02 2025
+#Author: Marina Gracia, Sergio Roales, Diego Vargas
+#Date created: 02 abr 2025
 #Version: 1.0
 
 #--------------------VARIABLES--------------------#
