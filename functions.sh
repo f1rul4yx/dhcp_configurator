@@ -138,3 +138,47 @@ verificar_estado_dhcp
   esac 
 }
 menu
+
+# Función para establecer el pool del dhcp
+
+establecer_pool(){
+
+read -p "Ingresa un rango de direcciones IP (inicio: XXX.XX.X.XXX fin: XXX.XX.X.XXX): " ip_ini ip_fin
+read -p "Ingresa la máscara de red: " mask
+conf_serv="/etc/dhcp/dhcpd.conf"
+gateway=ip route | grep default | awk {'print $3'}
+direccion_red=ip route | grep 0.0 | awk -F '/' {'print $1'}
+if ! [[ $ip_ini =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || ! [[ $ip_fin =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+
+        echo "Error: Las direcciones IP no son válidas."
+
+        return 1
+
+fi
+
+if ! [[ $mask =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+
+        echo "Error: La máscara de red no es válida."
+
+        return 1
+
+fi
+
+
+    {
+
+        echo "subnet $direccion_red netmask $mask {"
+
+        echo "    range $ip_ini $ip_fin;"
+
+        echo "    option routers $gateway;"
+
+        echo "}"
+
+    } >> $conf_serv
+echo "La configuración del pool se ha guardado correctamente en $conf_serv"
+sudo systemctl restart isc-dhcp-server
+return 0
+
+establecer_pool
+
