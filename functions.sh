@@ -65,6 +65,7 @@ function f_dhcp_instalado(){
 	echo "No está instalado, se instalará"
 	apt install isc-dhcp-server -y
   else
+	echo "DHCP instalado"
 	return 0
   fi
 }
