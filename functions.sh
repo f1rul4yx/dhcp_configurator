@@ -51,10 +51,10 @@ function f_root(){
     return 0
   else
     echo "No eres administrador"
-    return 1
+    exit 0
   fi
 }
-f_root
+
 
 #verificar dhcp instalado
 #si no está instalado devuelve error
@@ -69,7 +69,7 @@ function f_dhcp_instalado(){
 	return 0
   fi
 }
-f_dhcp_instalado
+
 #modificar fihcero dhcp con la interfaz. Verifica si interfaz existe.
 #si existe la mete en el archivo. sino devuelve error.
 function interfaz (){
@@ -89,7 +89,7 @@ function interfaz (){
   fi
 
 }
-interfaz
+
 
 # Funciones para reiniciar servicio, y verificar estado del servidor dhcp
 reiniciar_servicio() {
@@ -105,9 +105,36 @@ verificar_estado_dhcp(){
 }
 
 
-
-
-
-
-
-
+#menu
+function menu(){
+f_root
+f_dhcp_instalado
+interfaz
+verificar_configuracion
+reiniciar_servicio
+verificar_estado_dhcp
+        echo "1. Establece pool"
+        echo "2. Establece opciones adicionales."
+        echo "3. Reiniciar servicio."
+        echo "4. Verificar configuracion."
+        echo "5. Salir."
+  read -p "Elige una opción: " opcion
+  case $opcion in
+        1)
+        establecer_pool
+        ;;
+        2)
+        establecer_pool_plus
+        ;;
+        3)
+        reinciar_servicio
+        ;;
+        4)
+        verificar_configuracion
+        ;;
+        *)
+        exit 0
+        ;;
+  esac 
+}
+menu
