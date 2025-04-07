@@ -63,7 +63,14 @@ function verificar_dhcp_instalado() {
     echo -e "${ROJO}El paquete isc-dhcp-server no está instalado, se instalará a continuación!!!${RESET}"
     echo -e "${SUBRAYADO}Pulsa una tecla para continuar...${RESET}"
     read
-    apt install isc-dhcp-server -y
+    apt install isc-dhcp-server -y &>/dev/null
+    if [[ $? -eq 0 ]]; then
+      echo -e "${VERDE}Se instalo correctamente.${RESET}"
+      return 0
+    else
+      echo -e "${ROJO}Hubo algún problema con la instalación!!!${RESET}"
+      return 1
+    fi
   else
     return 0
   fi
@@ -72,7 +79,7 @@ function verificar_dhcp_instalado() {
 # Pide al usuario la interfaz en la que va a escuchar el servidor DHCP
 function establecer_interfaz() {
   fichero_dhcp="/etc/default/isc-dhcp-server"
-  read -p "Introduce interfaz: " interfaz
+  read -p "Introduce la interfaz: " interfaz
   ip link show "$interfaz" &>/dev/null
   if [[ $? -eq 0 ]]; then
     sed -i "s/INTERFACESv4=.*/INTERFACESv4=\"$interfaz\"/g" $fichero_dhcp
@@ -85,38 +92,49 @@ function establecer_interfaz() {
 
 # Establece la configuración del DHCP
 function establecer_pool() {
-  read -p "Ingresa un rango de direcciones IP (inicio: XXX.XX.X.XXX fin: XXX.XX.X.XXX): " ip_ini ip_fin
-  read -p "Ingresa la máscara de red: " mask
-  conf_serv="/etc/dhcp/dhcpd.conf"
-  gateway=ip route | grep default | awk {'print $3'}
-  direccion_red=ip route | grep 0.0 | awk -F '/' {'print $1'}
-  if ! [[ $ip_ini =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || ! [[ $ip_fin =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "Error: Las direcciones IP no son válidas."
-    return 1
-  fi
-  if ! [[ $mask =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "Error: La máscara de red no es válida."
-    return 1
-  fi
+  read -p "Ingresa la dirección de red: " direccion_red
+  read -p "Ingresa la máscara de red: " mascara_red
+  read -p "Ingresa el primer valor del rango de direcciones: " ip_inicio
+  read -p "Ingresa el último valor del rando de direcciones: " ip_final
+  read -p "Ingresa la puerta de enlace: " puerta_enlace
+  fichero_conf="/etc/dhcp/dhcpd.conf"
   {
-    echo "subnet $direccion_red netmask $mask {"
-    echo "    range $ip_ini $ip_fin;"
-    echo "    option routers $gateway;"
+    echo "subnet $direccion_red netmask $mascara_red {"
+    echo "  range $ip_inicio $ip_final;"
+    echo "  option routers $puerta_enlace;"
     echo "}"
-  } >> $conf_serv
-  echo "La configuración del pool se ha guardado correctamente en $conf_serv"
-  return 0
+  } >> $fichero_conf
+  if [[ $? -eq 0 ]]; then
+    echo -e "${VERDE}La configuración del pool se ha guardado correctamente en $fichero_conf${RESET}"
+    return 0
+  else
+    echo -e "${ROJO}Hubo algún problema!!!${RESET}"
+    return 1
+  fi
+}
+
+# Verifica que el archivo de configuración esté correctamente definido
+function verificar_configuracion() {
+  dhcpd -t -cf /etc/dhcp/dhcpd.conf &>/dev/null
+  if [[ $? -eq 0 ]]; then
+    echo -e "${VERDE}El archivo /etc/dhcp/dhcpd.conf está correctamente configurado.${RESET}"
+    return 0
+  else
+    echo -e "${ROJO}Hay un problema en el archivo de configuración /etc/dhcp/dhcpd.conf!!!${RESET}"
+    return 1
+  fi
 }
 
 # Reinicia el servicio DHCP
 function reiniciar_servicio() {
-  systemctl restart isc-dhcp-server
-}
-
-### VERIFICAR ###
-# Verifica que el archivo de configuración esté correctamente definido
-function verificar_configuracion() {
-  dhcpd -t -cf /etc/dhcp/dhcpd.conf
+  systemctl restart isc-dhcp-server $>/dev/null
+  if [[ $? -eq 0 ]]; then
+    echo -e "${VERDE}El servicio se reinicio con exito.${RESET}"
+    return 0
+  else
+    echo -e "${ROJO}Hubo algún problema al reiniciar el servicio!!!${RESET}"
+    return 1
+  fi
 }
 
 # Verifica el estado del servicio
@@ -130,7 +148,7 @@ function menu() {
   echo "2. Establecer pool"
   echo "3. Verificar configuración"
   echo "4. Reiniciar servicio"
-  echo "5. Verificar estado del servicio"
+  echo "5. Ver estado del servicio"
   echo "6. Salir"
   read -p "Elige una opción: " opcion
   case $opcion in
@@ -159,5 +177,7 @@ function menu() {
 function main() {
   verificar_root
   verificar_dhcp_instalado
-  menu
+  while [[ $opcion != 6 ]]; do
+    menu
+  done
 }
