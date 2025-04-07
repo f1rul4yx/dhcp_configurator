@@ -91,8 +91,18 @@ function interfaz (){
 }
 interfaz
 
+# Funciones para reiniciar servicio, y verificar estado del servidor dhcp
+reiniciar_servicio() {
+  systemctl restart isc-dhcp-server
+}
 
+verificar_configuracion() {
+  dhcpd -t -cf /etc/dhcp/dhcpd.conf
+}
 
+verificar_estado_dhcp(){
+  systemctl status isc-dhcp-server
+}
 
 
 
