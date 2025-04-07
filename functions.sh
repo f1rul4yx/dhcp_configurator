@@ -69,7 +69,7 @@ function verificar_dhcp_instalado() {
       return 0
     else
       echo -e "${ROJO}Hubo algún problema con la instalación!!!${RESET}"
-      return 1
+      exit 0
     fi
   else
     return 0
@@ -90,13 +90,36 @@ function establecer_interfaz() {
   fi
 }
 
+# Valida si una cadena es o no una dirección IP válida
+function validar_ip() {
+  ip=$1
+  if [[ $ip =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+    IFS='.' read -r -a octetos <<< "$ip"
+    for octeto in "${octetos[@]}"; do
+      if ((octeto < 0 || octeto > 255)); then
+        echo -e "${ROJO}IP inválida!!!${RESET}"
+        return 1
+      fi
+    done
+    return 0
+  else
+    echo -e "${ROJO}IP inválida!!!${RESET}"
+    return 1
+  fi
+}
+
 # Establece la configuración del DHCP
 function establecer_pool() {
   read -p "Ingresa la dirección de red: " direccion_red
+  validar_ip "$direccion_red" || return 1
   read -p "Ingresa la máscara de red: " mascara_red
+  validar_ip "$mascara_red" || return 1
   read -p "Ingresa el primer valor del rango de direcciones: " ip_inicio
-  read -p "Ingresa el último valor del rando de direcciones: " ip_final
+  validar_ip "$ip_inicio" || return 1
+  read -p "Ingresa el último valor del rango de direcciones: " ip_final
+  validar_ip "$ip_final" || return 1
   read -p "Ingresa la puerta de enlace: " puerta_enlace
+  validar_ip "$puerta_enlace" || return 1
   fichero_conf="/etc/dhcp/dhcpd.conf"
   {
     echo "subnet $direccion_red netmask $mascara_red {"
@@ -127,7 +150,7 @@ function verificar_configuracion() {
 
 # Reinicia el servicio DHCP
 function reiniciar_servicio() {
-  systemctl restart isc-dhcp-server $>/dev/null
+  systemctl restart isc-dhcp-server &>/dev/null
   if [[ $? -eq 0 ]]; then
     echo -e "${VERDE}El servicio se reinicio con exito.${RESET}"
     return 0
