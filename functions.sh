@@ -45,3 +45,58 @@ FONDO_GRIS="\e[47m"
 FONDO_BLANCO="\e[48m"
 
 #--------------------FUNCIONES--------------------#
+#verificar root.
+function f_root(){
+  if [[ $UID -eq 0  ]]; then
+    return 0
+  else
+    echo "No eres administrador"
+    return 1
+  fi
+}
+f_root
+
+#verificar dhcp instalado
+#si no está instalado devuelve error
+
+function f_dhcp_instalado(){
+  paquete=$(dpkg -l | grep isc-dhcp-server)
+  if [[ -z $paquete ]]; then
+	echo "No está instalado, se instalará"
+	apt install isc-dhcp-server -y
+  else
+	return 0
+  fi
+}
+f_dhcp_instalado
+#modificar fihcero dhcp con la interfaz. Verifica si interfaz existe.
+#si existe la mete en el archivo. sino devuelve error.
+function interfaz (){
+  fichero_dhcp="/etc/default/isc-dhcp-server"
+  read -p "Introduce interfaz: " interfaz
+
+#ver si interfaz existe:
+
+    ip link show "$interfaz" &>/dev/null;
+  if [[ $? -eq 0 ]] ; then
+#si es valido modificamos archivo dhcp
+        sed -i "s/INTERFACESv4=.*/INTERFACESv4=\"$interfaz\"/g" $fichero_dhcp
+    return 0
+  else
+        echo "No existe la interfaz"
+    return 1
+  fi
+
+}
+interfaz
+
+
+
+
+
+
+
+
+
+
+
