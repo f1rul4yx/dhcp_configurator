@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-#Author: Marina Gracia, Sergio Roales, Diego Vargas
+#Author: Marina Gracia, Sergio Roales, Javier Begines, Diego Vargas
 #Date created: 02 abr 2025
 #Version: 1.0
 
