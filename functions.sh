@@ -45,140 +45,119 @@ FONDO_GRIS="\e[47m"
 FONDO_BLANCO="\e[48m"
 
 #--------------------FUNCIONES--------------------#
-#verificar root.
-function f_root(){
-  if [[ $UID -eq 0  ]]; then
+
+# Verifica que el usuario ejecute el script como root
+function verificar_root() {
+  if [[ $UID -eq 0 ]]; then
     return 0
   else
-    echo "No eres administrador"
+    echo -e "${ROJO}Debes ejecutar el script como root!!!${RESET}"
     exit 0
   fi
 }
 
-
-#verificar dhcp instalado
-#si no está instalado devuelve error
-
-function f_dhcp_instalado(){
+# Verifica si está instalado el paquete y si no lo está se instala
+function verificar_dhcp_instalado() {
   paquete=$(dpkg -l | grep isc-dhcp-server)
   if [[ -z $paquete ]]; then
-	echo "No está instalado, se instalará"
-	apt install isc-dhcp-server -y
+    echo -e "${ROJO}El paquete isc-dhcp-server no está instalado, se instalará a continuación!!!${RESET}"
+    echo -e "${SUBRAYADO}Pulsa una tecla para continuar...${RESET}"
+    read
+    apt install isc-dhcp-server -y
   else
-	echo "DHCP instalado"
-	return 0
+    return 0
   fi
 }
 
-#modificar fihcero dhcp con la interfaz. Verifica si interfaz existe.
-#si existe la mete en el archivo. sino devuelve error.
-function interfaz (){
+# Pide al usuario la interfaz en la que va a escuchar el servidor DHCP
+function establecer_interfaz() {
   fichero_dhcp="/etc/default/isc-dhcp-server"
   read -p "Introduce interfaz: " interfaz
-
-#ver si interfaz existe:
-
-    ip link show "$interfaz" &>/dev/null;
-  if [[ $? -eq 0 ]] ; then
-#si es valido modificamos archivo dhcp
-        sed -i "s/INTERFACESv4=.*/INTERFACESv4=\"$interfaz\"/g" $fichero_dhcp
+  ip link show "$interfaz" &>/dev/null
+  if [[ $? -eq 0 ]]; then
+    sed -i "s/INTERFACESv4=.*/INTERFACESv4=\"$interfaz\"/g" $fichero_dhcp
     return 0
   else
-        echo "No existe la interfaz"
+    echo -e "${ROJO}La interfaz introducida no existe!!!${RESET}"
     return 1
   fi
-
 }
 
+# Establece la configuración del DHCP
+function establecer_pool() {
+  read -p "Ingresa un rango de direcciones IP (inicio: XXX.XX.X.XXX fin: XXX.XX.X.XXX): " ip_ini ip_fin
+  read -p "Ingresa la máscara de red: " mask
+  conf_serv="/etc/dhcp/dhcpd.conf"
+  gateway=ip route | grep default | awk {'print $3'}
+  direccion_red=ip route | grep 0.0 | awk -F '/' {'print $1'}
+  if ! [[ $ip_ini =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || ! [[ $ip_fin =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "Error: Las direcciones IP no son válidas."
+    return 1
+  fi
+  if ! [[ $mask =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "Error: La máscara de red no es válida."
+    return 1
+  fi
+  {
+    echo "subnet $direccion_red netmask $mask {"
+    echo "    range $ip_ini $ip_fin;"
+    echo "    option routers $gateway;"
+    echo "}"
+  } >> $conf_serv
+  echo "La configuración del pool se ha guardado correctamente en $conf_serv"
+  return 0
+}
 
-# Funciones para reiniciar servicio, y verificar estado del servidor dhcp
-reiniciar_servicio() {
+# Reinicia el servicio DHCP
+function reiniciar_servicio() {
   systemctl restart isc-dhcp-server
 }
 
-verificar_configuracion() {
+### VERIFICAR ###
+# Verifica que el archivo de configuración esté correctamente definido
+function verificar_configuracion() {
   dhcpd -t -cf /etc/dhcp/dhcpd.conf
 }
 
-verificar_estado_dhcp(){
+# Verifica el estado del servicio
+function verificar_estado_dhcp() {
   systemctl status isc-dhcp-server
 }
 
-
-#menu
-function menu(){
-f_root
-f_dhcp_instalado
-interfaz
-verificar_configuracion
-reiniciar_servicio
-verificar_estado_dhcp
-        echo "1. Establece pool"
-        echo "2. Establece opciones adicionales."
-        echo "3. Reiniciar servicio."
-        echo "4. Verificar configuracion."
-        echo "5. Salir."
+# Menu para el programa final
+function menu() {
+  echo "1. Establecer interfaz"
+  echo "2. Establecer pool"
+  echo "3. Verificar configuración"
+  echo "4. Reiniciar servicio"
+  echo "5. Verificar estado del servicio"
+  echo "6. Salir"
   read -p "Elige una opción: " opcion
   case $opcion in
-        1)
-        establecer_pool
-        ;;
-        2)
-        establecer_pool_plus
-        ;;
-        3)
-        reinciar_servicio
-        ;;
-        4)
-        verificar_configuracion
-        ;;
-        *)
-        exit 0
-        ;;
-  esac 
+    1)
+      establecer_interfaz
+    ;;
+    2)
+      establecer_pool
+    ;;
+    3)
+      verificar_configuracion
+    ;;
+    4)
+      reiniciar_servicio
+    ;;
+    5)
+      verificar_estado_dhcp
+    ;;
+    *)
+      exit 0
+    ;;
+  esac
 }
-menu
 
-# Función para establecer el pool del dhcp
-
-establecer_pool(){
-
-read -p "Ingresa un rango de direcciones IP (inicio: XXX.XX.X.XXX fin: XXX.XX.X.XXX): " ip_ini ip_fin
-read -p "Ingresa la máscara de red: " mask
-conf_serv="/etc/dhcp/dhcpd.conf"
-gateway=ip route | grep default | awk {'print $3'}
-direccion_red=ip route | grep 0.0 | awk -F '/' {'print $1'}
-if ! [[ $ip_ini =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || ! [[ $ip_fin =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-
-        echo "Error: Las direcciones IP no son válidas."
-
-        return 1
-
-fi
-
-if ! [[ $mask =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-
-        echo "Error: La máscara de red no es válida."
-
-        return 1
-
-fi
-
-
-    {
-
-        echo "subnet $direccion_red netmask $mask {"
-
-        echo "    range $ip_ini $ip_fin;"
-
-        echo "    option routers $gateway;"
-
-        echo "}"
-
-    } >> $conf_serv
-echo "La configuración del pool se ha guardado correctamente en $conf_serv"
-sudo systemctl restart isc-dhcp-server
-return 0
-
-establecer_pool
-
+# Programa final estructurado
+function main() {
+  verificar_root
+  verificar_dhcp_instalado
+  menu
+}
