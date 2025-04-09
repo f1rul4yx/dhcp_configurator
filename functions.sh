@@ -76,6 +76,25 @@ function verificar_dhcp_instalado() {
   fi
 }
 
+function verificar_dialog_instalado() {
+  paquete=$(dpkg -l | grep dialog)
+  if [[ -z $paquete ]]; then
+    echo -e "${ROJO}El paquete dialog no está instalado, se instalará a continuación!!!${RESET}"
+    echo -e "${SUBRAYADO}Pulsa una tecla para continuar...${RESET}"
+    read
+    apt install dialog -y &>/dev/null
+    if [[ $? -eq 0 ]]; then
+      echo -e "${VERDE}Se instalo correctamente.${RESET}"
+      return 0
+    else
+      echo -e "${ROJO}Hubo algún problema con la instalación!!!${RESET}"
+      exit 0
+    fi
+  else
+    return 0
+  fi
+}
+
 # Pide al usuario la interfaz en la que va a escuchar el servidor DHCP
 function establecer_interfaz() {
   fichero_dhcp="/etc/default/isc-dhcp-server"
@@ -167,13 +186,15 @@ function verificar_estado_dhcp() {
 
 # Menu para el programa final
 function menu() {
-  echo "1. Establecer interfaz"
-  echo "2. Establecer pool"
-  echo "3. Verificar configuración"
-  echo "4. Reiniciar servicio"
-  echo "5. Ver estado del servicio"
-  echo "6. Salir"
-  read -p "Elige una opción: " opcion
+  opcion=$(dialog --title "DHCP Configurator" \
+          --stdout \
+          --menu "Opciones" 0 0 0 \
+          1 "Establecer interfaz" \
+          2 "Establecer pool" \
+          3 "Verificar configuración" \
+          4 "Reiniciar servicio" \
+          5 "Ver estado del servicio" \
+          6 "Salir")
   case $opcion in
     1)
       establecer_interfaz
@@ -200,6 +221,7 @@ function menu() {
 function main() {
   verificar_root
   verificar_dhcp_instalado
+  verificar_dialog_instalado
   while [[ $opcion != 6 ]]; do
     menu
   done
